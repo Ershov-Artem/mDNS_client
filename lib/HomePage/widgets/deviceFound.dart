@@ -6,9 +6,13 @@ Future<List<String>> foundDevice() async{
   const String name = '_syncleo._udp.local';
   final MDnsClient client = MDnsClient();
   await client.start();
-  client.lookup(query).listen((event) {
-
+  client.lookup(ResourceRecordQuery.serverPointer(name)).listen((event) {
+    print("ptr:"+event.toString());
+    client.lookup(ResourceRecordQuery.text((event as PtrResourceRecord).domainName)).listen((event) {
+      print("txt:"+event.toString());
+    });
   });
+
   // await for (final PtrResourceRecord ptr in client
   //     .lookup<PtrResourceRecord>(ResourceRecordQuery.serverPointer(name))){
   //   await for (final SrvResourceRecord srv in client.lookup<SrvResourceRecord>(
@@ -18,7 +22,7 @@ Future<List<String>> foundDevice() async{
   //       devices.add("${srv.target}:${srv.port} ");
   //     }
   //   }
-  client.stop();
+  //client.stop();
   return devices;
 }
 
