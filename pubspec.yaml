@@ -37,6 +37,8 @@ dependencies:
   multicast_dns: ^0.3.2
   flutter_bloc: ^8.0.1
   singleton: ^0.0.2
+  equatable: ^2.0.3
+  jwt_decoder: ^2.0.1
 
 dev_dependencies:
   flutter_test:

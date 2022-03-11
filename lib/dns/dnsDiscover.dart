@@ -1,6 +1,10 @@
+import 'package:equatable/equatable.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
+import 'dart:async';
+
 import 'package:multicast_dns/multicast_dns.dart';
 
-class DnsDiscoveredDevice {
+class DnsDiscoveredDevice with EquatableMixin{
   final String mac;
   final String vendor;
   final int type;
@@ -12,12 +16,34 @@ class DnsDiscoveredDevice {
   final String publicKey;
   final int curve;
 
-  DnsDiscoveredDevice( this.baseType, this.name, this.firmware, this.publicKey, this.curve, this.pairing,
+  const DnsDiscoveredDevice( this.baseType, this.name, this.firmware, this.publicKey, this.curve, this.pairing,
   { required this.mac,
     required this.vendor,
     required this.type,
     required this.protocol,
 });
+
+  factory DnsDiscoveredDevice.fromJwt(String token) {
+    final Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
+    return ;
+  }
+
+  @override
+  List<Object?> get props => [
+  mac,
+  vendor,
+  type,
+  baseType,
+  name,
+  firmware,
+  pairing,
+  protocol,
+  publicKey,
+  curve,
+  ];
+
+  @override
+  bool? get stringify => true;
 }
 
 class DnsDiscoveryManager{
@@ -30,26 +56,29 @@ class DnsDiscoveryManager{
 
   DnsDiscoveryManager._internal();
 
-  Stream updateConfig(List<String> vendors){
-    const String name = '_syncleo._udp.local';
-    MDnsClient client = MDnsClient();
+  final MDnsClient _client = MDnsClient();
+  DnsDiscoveredDevice? _config;
+  final configController = StreamController<DnsDiscoveredDevice?>.broadcast();
 
+  @override
+  DnsDiscoveredDevice? get currentConfig => _config;
 
-    client.lookup(ResourceRecordQuery.serverPointer(name)).listen((event) {
-      client.lookup(ResourceRecordQuery.text((event as PtrResourceRecord).domainName)).listen((event) {
-        for (String vendor in vendors){
-          if((event as TxtResourceRecord).text.contains(vendor)){
-
-          }
-        }
-      });
-    });
+  void _updateCinfig(DnsDiscoveredDevice? config){
+    _config = config;
+    configController.add(_config);
   }
 
-  Stream<ResourceRecord> beginScan(String name){
-    MDnsClient client = MDnsClient();
-    client.start();
-    return client.lookup(ResourceRecordQuery.serverPointer(name));
+  @override
+  Stream<DnsDiscoveredDevice?> watchAccountChanges() {
+    _refreshConfig();
+    return configController.stream;
   }
 
+  Future _refreshConfig() async {
+    final client = _client;
+    if (client == null){
+      _updateCinfig(null);
+      return;
+    }
+  }
 }
