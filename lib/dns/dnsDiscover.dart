@@ -23,10 +23,15 @@ class DnsDiscoveredDevice with EquatableMixin{
     required this.protocol,
 });
 
-  factory DnsDiscoveredDevice.fromJwt(String token) {
-    final Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
-    return ;
-  }
+  // DnsDiscoveredDevice.fromTxt(String deviceTxt){
+  //   Map<String, dynamic> paramsMap = Map();
+  //   List<String> params = [];
+  //   params = deviceTxt.split("\n");
+  //   for (String par in params){
+  //       paramsMap.addAll((par.split("=") as Map<String, dynamic>));
+  //   }
+  //   return DnsDiscoveredDevice(baseType, name, firmware, publicKey, curve, pairing, mac: mac, vendor: vendor, type: type, protocol: protocol);
+  // }
 
   @override
   List<Object?> get props => [
@@ -46,6 +51,26 @@ class DnsDiscoveredDevice with EquatableMixin{
   bool? get stringify => true;
 }
 
+DnsDiscoveredDevice fromTxt(String deviceTxt, String name){
+  Map<String, dynamic> paramsMap = Map();
+  List<String> params = [];
+  params = deviceTxt.split("\n");
+  for (String par in params){
+    paramsMap.addAll((par.split("=") as Map<String, dynamic>));
+  }
+  return DnsDiscoveredDevice(paramsMap["basetype"],
+      name, paramsMap["firmware"],
+      paramsMap["public"],
+      paramsMap["curve"],
+      paramsMap["pairing"],
+      mac: paramsMap["macaddr"],
+      vendor: paramsMap["vendor"],
+      type: paramsMap["devtype"],
+      protocol: paramsMap["protocol"]);
+}
+
+//------------------------
+
 class DnsDiscoveryManager{
 
   static final DnsDiscoveryManager _singleton = DnsDiscoveryManager._internal();
@@ -56,29 +81,25 @@ class DnsDiscoveryManager{
 
   DnsDiscoveryManager._internal();
 
-  final MDnsClient _client = MDnsClient();
-  DnsDiscoveredDevice? _config;
-  final configController = StreamController<DnsDiscoveredDevice?>.broadcast();
+  List<DnsDiscoveredDevice> _devices = [];
+  final deviceController = StreamController<List<DnsDiscoveredDevice>>.broadcast();
 
   @override
-  DnsDiscoveredDevice? get currentConfig => _config;
+  List<DnsDiscoveredDevice> get currentDevice =>_devices;
 
-  void _updateCinfig(DnsDiscoveredDevice? config){
-    _config = config;
-    configController.add(_config);
+  void update(List<DnsDiscoveredDevice> devices){
+    _devices = devices;
+    deviceController.add(_devices);
   }
 
   @override
-  Stream<DnsDiscoveredDevice?> watchAccountChanges() {
-    _refreshConfig();
-    return configController.stream;
+  Stream<List<DnsDiscoveredDevice>> watchChanges(){
+    return deviceController.stream;
   }
 
-  Future _refreshConfig() async {
-    final client = _client;
-    if (client == null){
-      _updateCinfig(null);
-      return;
-    }
+  void deviceFound(List<DnsDiscoveredDevice> devices, String txt, String name){
+    devices.add(fromTxt(txt, name));
   }
+
+  void deviceNotFound(){}
 }

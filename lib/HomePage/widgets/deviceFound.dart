@@ -9,7 +9,8 @@ Future<List<String>> foundDevice() async{
   client.lookup(ResourceRecordQuery.serverPointer(name)).listen((event) {
     print("ptr:"+event.toString());
     client.lookup(ResourceRecordQuery.text((event as PtrResourceRecord).domainName)).listen((event) {
-      print("txt:"+event.toString());
+      print("txt:"+(event as TxtResourceRecord).text);
+
     });
   });
 
