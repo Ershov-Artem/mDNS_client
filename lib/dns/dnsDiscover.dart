@@ -4,16 +4,18 @@ import 'dart:async';
 import 'package:multicast_dns/multicast_dns.dart';
 
 class DnsDiscoveredDevice with EquatableMixin{
-  final String mac;
-  final String vendor;
-  final int type;
-  final int baseType;
-  final String name;
-  final double firmware;
-  final bool pairing;
-  final int protocol;
-  final String publicKey;
-  final int curve;
+  final String mac; // by DomainName
+  final String? vendor;
+  final int? type;
+  final int? baseType;
+  final String? name;
+  final double? firmware;
+  final bool? pairing;
+  final int? protocol;
+  final String? publicKey;
+  final int? curve;
+
+  //validUntil, List<InternetAdress>
 
   const DnsDiscoveredDevice( this.baseType, this.name, this.firmware, this.publicKey, this.curve, this.pairing,
   { required this.mac,
@@ -57,6 +59,8 @@ DnsDiscoveredDevice fromTxt(String deviceTxt, String name){
       type: paramsMap["devtype"],
       protocol: paramsMap["protocol"]);
 }
+
+//copyWith
 
 //------------------------
 
@@ -110,7 +114,9 @@ class DnsDiscoveryManager{
     return _deviceController.stream;
   }
 
-  void deviceFound(String txt, String name){
+  //
+
+  void _deviceFound(String txt, String name){
     _devices.forEach((key, value) {
       if(key == name){
         _devices[key] = fromTxt(txt, name);
@@ -119,7 +125,7 @@ class DnsDiscoveryManager{
     _update(_devices);
   }
 
-  void deviceLost(String txt, String name){
+  void _deviceLost(String txt, String name){
     _devices.forEach((key, value) {
       if(key == name){
         _devices.remove(key);
@@ -128,24 +134,31 @@ class DnsDiscoveryManager{
     _update(_devices);
   }
 
-  void startDevice() async {
+  void startScan() async {
     await _client.start();
     _streamDomainSubscription = _client.lookup(ResourceRecordQuery.serverPointer(name)).listen((event) {
 
-      _streamIpv4Subscription = _client.lookup(ResourceRecordQuery.addressIPv4((event as IPAddressResourceRecord).name)).listen((event) { });
+      _streamIpv4Subscription = _client.lookup(ResourceRecordQuery.addressIPv4((event as IPAddressResourceRecord).name)).listen((event) {
+        //_deviceFound
+      });
       _Ipv4Subscription[event.name] = _streamIpv4Subscription;
 
-      _streamIpv6Subscription = _client.lookup(ResourceRecordQuery.addressIPv6(event.name)).listen((event) { });
+      _streamIpv6Subscription = _client.lookup(ResourceRecordQuery.addressIPv6(event.name)).listen((event) {
+        //_deviceFound
+      });
       _Ipv6Subscription[event.name] = _streamIpv6Subscription;
 
-      _streamTxtSubscription = _client.lookup(ResourceRecordQuery.text((event as PtrResourceRecord).domainName)).listen((event) {});
+      _streamTxtSubscription = _client.lookup(ResourceRecordQuery.text((event as PtrResourceRecord).domainName)).listen((event) {
+        //_deviceFound
+      });
      _txtSubscription[(event as PtrResourceRecord).domainName] = _streamTxtSubscription;
 
     });
     _domainSubscription[name] = _streamDomainSubscription;
+    // addTimer
   }
 
-  void stopDevice(){
+  void stopScan(){
 
     _txtSubscription.forEach((key, value) {
       _txtSubscription[key]?.cancel();
@@ -166,7 +179,7 @@ class DnsDiscoveryManager{
       _Ipv6Subscription[key]?.cancel();
     });
     _Ipv6Subscription.clear();
-
+    //stopTimer
     _client.stop();
   }
 }
