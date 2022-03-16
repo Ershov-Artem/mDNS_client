@@ -1,5 +1,4 @@
 import 'package:equatable/equatable.dart';
-import 'package:jwt_decoder/jwt_decoder.dart';
 import 'dart:async';
 
 import 'package:multicast_dns/multicast_dns.dart';
@@ -22,16 +21,6 @@ class DnsDiscoveredDevice with EquatableMixin{
     required this.type,
     required this.protocol,
 });
-
-  // DnsDiscoveredDevice.fromTxt(String deviceTxt){
-  //   Map<String, dynamic> paramsMap = Map();
-  //   List<String> params = [];
-  //   params = deviceTxt.split("\n");
-  //   for (String par in params){
-  //       paramsMap.addAll((par.split("=") as Map<String, dynamic>));
-  //   }
-  //   return DnsDiscoveredDevice(baseType, name, firmware, publicKey, curve, pairing, mac: mac, vendor: vendor, type: type, protocol: protocol);
-  // }
 
   @override
   List<Object?> get props => [
@@ -81,25 +70,103 @@ class DnsDiscoveryManager{
 
   DnsDiscoveryManager._internal();
 
-  List<DnsDiscoveredDevice> _devices = [];
-  final deviceController = StreamController<List<DnsDiscoveredDevice>>.broadcast();
+  final String name = '_syncleo._udp.local';
+
+  final MDnsClient _client = MDnsClient();
+
+  Map<String, DnsDiscoveredDevice> _devices = Map();
+
+  final Map<String, StreamSubscription?> _domainSubscription = Map();
+
+  final Map<String, StreamSubscription?> _txtSubscription = Map();
+
+  final Map<String, StreamSubscription?> _Ipv4Subscription = Map();
+
+  final Map<String, StreamSubscription?> _Ipv6Subscription = Map();
+
+  final _deviceController = StreamController<Map<String, DnsDiscoveredDevice>>.broadcast();
+
+  StreamSubscription? _streamDomainSubscription;
+  StreamSubscription? _streamTxtSubscription;
+  StreamSubscription? _streamIpv4Subscription;
+  StreamSubscription? _streamIpv6Subscription;
+
+  StreamSubscription? _DDDSubscription;
 
   @override
-  List<DnsDiscoveredDevice> get currentDevice =>_devices;
+  Map<String, DnsDiscoveredDevice> get currentDevice =>_devices;
 
-  void update(List<DnsDiscoveredDevice> devices){
+  void _update(Map<String, DnsDiscoveredDevice> devices){
     _devices = devices;
-    deviceController.add(_devices);
+    _deviceController.add(_devices);
   }
 
   @override
-  Stream<List<DnsDiscoveredDevice>> watchChanges(){
-    return deviceController.stream;
+  Stream<Map<String, DnsDiscoveredDevice>> watchChanges(){
+
+    // _DDDSubscription = watchChanges().asBroadcastStream().listen((event) {
+    //
+    // });
+    return _deviceController.stream;
   }
 
-  void deviceFound(List<DnsDiscoveredDevice> devices, String txt, String name){
-    devices.add(fromTxt(txt, name));
+  void deviceFound(String txt, String name){
+    _devices.forEach((key, value) {
+      if(key == name){
+        _devices[key] = fromTxt(txt, name);
+      }
+    });
+    _update(_devices);
   }
 
-  void deviceNotFound(){}
+  void deviceLost(String txt, String name){
+    _devices.forEach((key, value) {
+      if(key == name){
+        _devices.remove(key);
+      }
+    });
+    _update(_devices);
+  }
+
+  void startDevice() async {
+    await _client.start();
+    _streamDomainSubscription = _client.lookup(ResourceRecordQuery.serverPointer(name)).listen((event) {
+
+      _streamIpv4Subscription = _client.lookup(ResourceRecordQuery.addressIPv4((event as IPAddressResourceRecord).name)).listen((event) { });
+      _Ipv4Subscription[event.name] = _streamIpv4Subscription;
+
+      _streamIpv6Subscription = _client.lookup(ResourceRecordQuery.addressIPv6(event.name)).listen((event) { });
+      _Ipv6Subscription[event.name] = _streamIpv6Subscription;
+
+      _streamTxtSubscription = _client.lookup(ResourceRecordQuery.text((event as PtrResourceRecord).domainName)).listen((event) {});
+     _txtSubscription[(event as PtrResourceRecord).domainName] = _streamTxtSubscription;
+
+    });
+    _domainSubscription[name] = _streamDomainSubscription;
+  }
+
+  void stopDevice(){
+
+    _txtSubscription.forEach((key, value) {
+      _txtSubscription[key]?.cancel();
+    });
+    _txtSubscription.clear();
+
+    _domainSubscription.forEach((key, value) {
+      _domainSubscription[key]?.cancel();
+    });
+    _domainSubscription.clear();
+
+    _Ipv4Subscription.forEach((key, value) {
+      _Ipv4Subscription[key]?.cancel();
+    });
+    _Ipv4Subscription.clear();
+
+    _Ipv6Subscription.forEach((key, value) {
+      _Ipv6Subscription[key]?.cancel();
+    });
+    _Ipv6Subscription.clear();
+
+    _client.stop();
+  }
 }
