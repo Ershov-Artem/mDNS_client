@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mdns_client/dns/page/device_found_page.dart';
 import './HomePage/home.dart';
 
 void main() {
@@ -25,7 +26,7 @@ class MyApp extends StatelessWidget {
         // is not restarted.
         primarySwatch: Colors.blue,
       ),
-      home: HomePage(),
+      home: FoundPage(),
     );
   }
 }
